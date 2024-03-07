@@ -1,0 +1,23 @@
+{
+  "name": "load-testing",
+  "version": "1.0.0",
+  "license": "MIT",
+  "scripts": {
+    "lint": "eslint .",
+    "fix": "eslint --fix ."
+  },
+  "devDependencies": {
+    "@babel/core": "^7.24.0",
+    "@babel/eslint-parser": "^7.23.10",
+    "@babel/eslint-plugin": "^7.23.5",
+    "eslint": "^7.32.0",
+    "eslint-config-transloadit": "^2.0.0",
+    "eslint-plugin-import": "^2.29.1",
+    "eslint-plugin-jest": "^24.7.0",
+    "eslint-plugin-jsx-a11y": "^6.8.0",
+    "eslint-plugin-node": "^11.1.0",
+    "eslint-plugin-promise": "^4.3.1",
+    "eslint-plugin-react": "^7.34.0",
+    "eslint-plugin-react-hooks": "^4.6.0"
+  }
+}

@@ -1,0 +1,10 @@
+{
+  "extends": ["transloadit"],
+  "parserOptions": {
+    "requireConfigFile": false
+  },
+  "env": {
+    "node": false,
+    "jest": false
+  }
+}
