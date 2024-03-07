@@ -5,6 +5,7 @@ import { randomBytes } from 'k6/crypto'
 
 const UPLOAD_LENGTH = 1024 * 1024
 const REQUEST_PAYLOAD_SIZE = UPLOAD_LENGTH
+/** @type Uint8Array[] */
 const PAYLOADS = []
 
 const CREATION_WITH_DATA = true
@@ -35,8 +36,13 @@ export const options = {
   },
 }
 
+/**
+ * @param {string} endpoint
+ * @param {Uint8Array?} payload
+ */
 function uploadCreation (endpoint, payload = null) {
   const body = payload !== null ? payload.buffer : null
+  /** @type Record<string, string> */
   const headers = {
     'Upload-Length': `${UPLOAD_LENGTH}`,
     'Tus-Resumable': '1.0.0',
@@ -68,6 +74,11 @@ function uploadCreation (endpoint, payload = null) {
   return { uploadUrl, offset }
 }
 
+/**
+ * @param {string} uploadUrl
+ * @param {number} offset
+ * @param {Uint8Array} payload
+ */
 function uploadAppend (uploadUrl, offset, payload) {
   // We must pass the ArrayBuffer, not the typed array to `http.patch` as a body.
   const res = http.patch(uploadUrl, payload.buffer, {
@@ -93,7 +104,11 @@ function uploadAppend (uploadUrl, offset, payload) {
   return newOffset
 }
 
-function offsetRetrieve (uploadUrl, offset) {
+/**
+ * @param {string} uploadUrl
+ * @param {number} expectedOffset
+ */
+function offsetRetrieve (uploadUrl, expectedOffset) {
   const res = http.head(uploadUrl, {
     headers: {
       'Tus-Resumable': '1.0.0',
@@ -104,7 +119,7 @@ function offsetRetrieve (uploadUrl, offset) {
     !check(res, {
       'response code was 204'                 : (r) => r.status === 200,
       'response includes Tus-Resumable header': (r) => r.headers['Tus-Resumable'] === '1.0.0',
-      'response includes upload offset'       : (r) => r.headers['Upload-Offset'] === `${offset}`,
+      'response includes upload offset'       : (r) => r.headers['Upload-Offset'] === `${expectedOffset}`,
     })
   ) {
     fail('offset retrieve failed')
