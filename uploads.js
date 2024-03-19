@@ -47,16 +47,14 @@ export const options = {
 /**
  * @param {string} endpoint
  * @param {Uint8Array?} payload
+ * @param {Boolean} completesUpload
  */
-function uploadCreation (endpoint, payload = null) {
+function uploadCreation (endpoint, payload = null, completesUpload = false) {
   const body = payload !== null ? payload.buffer : null
   /** @type Record<string, string> */
   const headers = {
-    'Upload-Length': `${UPLOAD_LENGTH}`,
-    'Tus-Resumable': '1.0.0',
-  }
-  if (payload !== null) {
-    headers['Content-Type'] = 'application/offset+octet-stream'
+    'Upload-Complete'             : completesUpload ? '?1' : '?0',
+    'Upload-Draft-Interop-Version': '5',
   }
 
   const res = http.post(endpoint, body, {
@@ -65,10 +63,9 @@ function uploadCreation (endpoint, payload = null) {
 
   if (
     !check(res, {
-      'response code was 201'                 : (r) => r.status === 201,
-      'response includes Tus-Resumable header': (r) => r.headers['Tus-Resumable'] === '1.0.0',
-      'response includes upload URL'          : (r) => (r.headers['Location'] || '').length > 0,
-      'response includes upload offset'       : (r) => payload == null
+      'response code was 201'          : (r) => r.status === 201,
+      'response includes upload URL'   : (r) => (r.headers['Location'] || '').length > 0,
+      'response includes upload offset': (r) => payload == null
         || r.headers['Upload-Offset'] === `${payload.length}`,
     })
   ) {
@@ -86,22 +83,22 @@ function uploadCreation (endpoint, payload = null) {
  * @param {string} uploadUrl
  * @param {number} offset
  * @param {Uint8Array} payload
+ * @param {Boolean} completesUpload
  */
-function uploadAppend (uploadUrl, offset, payload) {
+function uploadAppend (uploadUrl, offset, payload, completesUpload) {
   // We must pass the ArrayBuffer, not the typed array to `http.patch` as a body.
   const res = http.patch(uploadUrl, payload.buffer, {
     headers: {
-      'Upload-Offset': `${offset}`,
-      'Tus-Resumable': '1.0.0',
-      'Content-Type' : 'application/offset+octet-stream',
+      'Upload-Offset'               : `${offset}`,
+      'Upload-Complete'             : completesUpload ? '?1' : '?0',
+      'Upload-Draft-Interop-Version': '5',
     },
   })
 
   if (
     !check(res, {
-      'response code was 204'                 : (r) => r.status === 204,
-      'response includes Tus-Resumable header': (r) => r.headers['Tus-Resumable'] === '1.0.0',
-      'response includes upload offset'       : (r) => r.headers['Upload-Offset'] === `${offset + payload.length}`,
+      'response code was 204'          : (r) => r.status === 204,
+      'response includes upload offset': (r) => r.headers['Upload-Offset'] === `${offset + payload.length}`,
     })
   ) {
     fail('upload appending failed')
@@ -119,15 +116,14 @@ function uploadAppend (uploadUrl, offset, payload) {
 function offsetRetrieve (uploadUrl, expectedOffset) {
   const res = http.head(uploadUrl, {
     headers: {
-      'Tus-Resumable': '1.0.0',
+      'Upload-Draft-Interop-Version': '5',
     },
   })
 
   if (
     !check(res, {
-      'response code was 204'                 : (r) => r.status === 200,
-      'response includes Tus-Resumable header': (r) => r.headers['Tus-Resumable'] === '1.0.0',
-      'response includes upload offset'       : (r) => r.headers['Upload-Offset'] === `${expectedOffset}`,
+      'response code was 204'          : (r) => r.status === 200,
+      'response includes upload offset': (r) => r.headers['Upload-Offset'] === `${expectedOffset}`,
     })
   ) {
     fail('offset retrieve failed')
@@ -143,12 +139,12 @@ export default function run () {
   // Shallow copy of payloads
   const payloads = [...PAYLOADS]
 
-  const upload = uploadCreation(ENDPOINT, CREATION_WITH_DATA ? payloads.shift() : null)
+  const upload = uploadCreation(ENDPOINT, CREATION_WITH_DATA ? payloads.shift() : null, CREATION_WITH_DATA && PAYLOADS.length === 1)
   const { uploadUrl } = upload
   let { offset } = upload
 
   for (const payload of payloads) {
-    offset = uploadAppend(uploadUrl, offset, payload)
+    offset = uploadAppend(uploadUrl, offset, payload, payloads.indexOf(payload) === payloads.length - 1)
 
     if (RETRIEVE_OFFSET_BETWEEN_REQUESTS) {
       offsetRetrieve(uploadUrl, offset)
