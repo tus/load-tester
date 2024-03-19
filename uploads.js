@@ -3,15 +3,28 @@ import http from 'k6/http'
 import { check, fail } from 'k6'
 import { randomBytes } from 'k6/crypto'
 
+// Configuration
+// -------------
+// Upload creation endpoint
+const ENDPOINT = 'https://tusd.tusdemo.net/files/'
+// Size of a single upload in bytes
 const UPLOAD_LENGTH = 1024 * 1024
+// Number of bytes to upload in a single request. If it's <= UPLOAD_LENGTH, a single request
+// is used to transfer the data. Otherwise, multiple requests are used.
 const REQUEST_PAYLOAD_SIZE = UPLOAD_LENGTH
+// If true, the upload data will be included in the upload creation request. Otherwise,
+// an empty upload creation request is issued.
+const CREATION_WITH_DATA = false
+// If true, a HEAD request will be sent after each PATCH request, simulating a complete upload
+// resumption.
+const RETRIEVE_OFFSET_BETWEEN_REQUESTS = false
+// Number of concurrent simulated users
+const VIRTUAL_USERS = 2
+// Number of sequential uploads per simulated user
+const UPLOADS_PER_VIRTUAL_USER = 10
+
 /** @type Uint8Array[] */
 const PAYLOADS = []
-
-const CREATION_WITH_DATA = true
-
-const RETRIEVE_OFFSET_BETWEEN_REQUESTS = false
-
 for (let offset = 0; offset < UPLOAD_LENGTH;) {
   const payloadSize = Math.min(UPLOAD_LENGTH - offset, REQUEST_PAYLOAD_SIZE)
   const payload = new Uint8Array(randomBytes(payloadSize))
@@ -21,16 +34,11 @@ for (let offset = 0; offset < UPLOAD_LENGTH;) {
 }
 
 export const options = {
-  //   // A number specifying the number of VUs to run concurrently.
-  //   vus: 5,
-  //   // A string specifying the total duration of the test run.
-  //   duration: '10s',
-
   scenarios: {
     contacts: {
       executor   : 'per-vu-iterations',
-      vus        : 1,
-      iterations : 10,
+      vus        : VIRTUAL_USERS,
+      iterations : UPLOADS_PER_VIRTUAL_USER,
       maxDuration: '30s',
     },
   },
@@ -135,7 +143,7 @@ export default function run () {
   // Shallow copy of payloads
   const payloads = [...PAYLOADS]
 
-  const upload = uploadCreation('https://tusd.tusdemo.net/files/', CREATION_WITH_DATA ? payloads.shift() : null)
+  const upload = uploadCreation(ENDPOINT, CREATION_WITH_DATA ? payloads.shift() : null)
   const { uploadUrl } = upload
   let { offset } = upload
 
